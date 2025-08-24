@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yara - Your Friendly AI Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="chatbot-container">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="header-content">
+                <div class="bot-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="header-info">
+                    <h1>Yara</h1>
+                    <p>Your Friendly AI Assistant</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" id="clearChatBtn" title="Clear Chat">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button class="btn-icon" id="settingsBtn" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" id="chatMessages">
+            <!-- Welcome Message -->
+            <div class="message bot-message">
+                <div class="message-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="message-text">
+                        Hi there! I'm Yara, and I'm so excited to meet you! 😊✨ How can I help you today?
+                    </div>
+                    <div class="message-time" id="welcomeTime"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator" style="display: none;">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="chat-input-area">
+            <div class="input-container">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="Type your message here..."
+                    rows="1"
+                    maxlength="1000"
+                ></textarea>
+                <button class="send-button" id="sendButton" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="input-footer">
+                <span class="char-count" id="charCount">0/1000</span>
+                <span class="api-status" id="apiStatus">API: Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="close-btn" id="closeSettingsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="apiUrl">API Endpoint:</label>
+                    <input type="text" id="apiUrl" placeholder="http://localhost:8000/chat">
+                </div>
+                <div class="setting-group">
+                    <label for="sessionId">Session ID (optional):</label>
+                    <input type="text" id="sessionId" placeholder="Leave empty for auto-generated">
+                </div>
+                <div class="setting-group">
+                    <label for="maxHistory">Max Messages in History:</label>
+                    <input type="number" id="maxHistory" min="10" max="100" value="50">
+                </div>
+                <div class="setting-group">
+                    <label for="autoScroll">Auto-scroll to new messages:</label>
+                    <input type="checkbox" id="autoScroll" checked>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="resetSettingsBtn">Reset to Defaults</button>
+                <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="toast" id="errorToast">
+        <div class="toast-content">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="errorMessage">An error occurred</span>
+        </div>
+        <button class="toast-close" id="closeToastBtn">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="chatbot.js"></script>
+</body>
+</html>
