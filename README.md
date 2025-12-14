@@ -67,8 +67,8 @@ Meet **Yara**, an intelligent and friendly AI assistant with state-of-the-art LL
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/yara.git
-   cd yara/org_chatbot
+   git clone https://github.com/ameerzain/yara.git
+   cd yara
    ```
 
 2. **Create a virtual environment** (recommended)
@@ -333,7 +333,7 @@ See the interactive API documentation at `/docs` for detailed request/response s
 ## 📁 Project Structure
 
 ```
-org_chatbot/
+yara/
 ├── backend/                # Backend Python code
 │   ├── src/                # Source code
 │   │   ├── main.py         # FastAPI application entry point
