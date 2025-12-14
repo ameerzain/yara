@@ -11,9 +11,14 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 
-from config import ModelConfig, AppConfig
-from db import db_manager
-from memory import memory_manager
+try:
+    from .config import ModelConfig, AppConfig
+    from .db import db_manager
+    from .memory import memory_manager
+except ImportError:
+    from config import ModelConfig, AppConfig
+    from db import db_manager
+    from memory import memory_manager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

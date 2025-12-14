@@ -9,9 +9,14 @@ from typing import Optional, List, Dict, Any
 import logging
 import time
 
-from nlp import nlp_engine
-from db import db_manager
-from config import AppConfig
+try:
+    from .nlp import nlp_engine
+    from .db import db_manager
+    from .config import AppConfig
+except ImportError:
+    from nlp import nlp_engine
+    from db import db_manager
+    from config import AppConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

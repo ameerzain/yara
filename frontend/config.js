@@ -22,6 +22,9 @@ const DEFAULT_CONFIG = {
     maxRetries: 3,
     retryDelay: 1000,
     
+    // Status Monitoring
+    statusCheckInterval: 3000, // Check API status every 3 seconds
+    
     // UI Elements
     elements: {
         chatMessages: '#chatMessages',

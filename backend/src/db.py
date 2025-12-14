@@ -11,7 +11,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
 import pandas as pd
 
-from config import DatabaseConfig
+try:
+    from .config import DatabaseConfig
+except ImportError:
+    from config import DatabaseConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

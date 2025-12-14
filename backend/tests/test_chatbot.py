@@ -6,6 +6,12 @@ Tests basic functionality without requiring the full API server.
 
 import asyncio
 import logging
+import sys
+from pathlib import Path
+
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
 from nlp import nlp_engine
 from db import db_manager
 from config import AppConfig, ModelConfig, DatabaseConfig

@@ -10,6 +10,9 @@ import argparse
 import subprocess
 from pathlib import Path
 
+# Add src directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+
 def print_banner():
     """Print the chatbot banner."""
     print("""
@@ -80,8 +83,9 @@ def start_api_server(host="0.0.0.0", port=8000, debug=False):
             env['DEBUG'] = 'True'
         
         # Start the server
+        main_path = Path(__file__).parent.parent / 'src' / 'main.py'
         subprocess.run([
-            sys.executable, "main.py"
+            sys.executable, str(main_path)
         ], env=env, check=True)
         
     except KeyboardInterrupt:
@@ -96,8 +100,9 @@ def run_tests():
     print("🧪 Running test suite...")
     
     try:
+        test_path = Path(__file__).parent.parent / 'tests' / 'test_chatbot.py'
         subprocess.run([
-            sys.executable, "test_chatbot.py"
+            sys.executable, str(test_path)
         ], check=True)
     except subprocess.CalledProcessError as e:
         print(f"❌ Tests failed: {e}")

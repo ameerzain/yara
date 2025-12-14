@@ -1,165 +1,139 @@
+#!/usr/bin/env python3
 """
-Main entry point for the chatbot API.
-Sets up FastAPI application and registers all routes.
+Launcher script for Yara backend and optionally the frontend UI.
+This script sets up the Python path and runs the main application.
+
+Usage:
+    python main.py              # Start backend only
+    python main.py --ui         # Start both backend and UI
+    python main.py --help      # Show help message
 """
-import logging
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
+import sys
+import argparse
+import subprocess
+import time
+import webbrowser
+from pathlib import Path
 
-from config import AppConfig, ModelConfig, DatabaseConfig
-from routes import (
-    chat_endpoint_func,
-    status_endpoint_func,
-    health_endpoint_func,
-    clear_history_endpoint_func,
-    database_info_endpoint_func
-)
-from routes import ChatRequest, ChatResponse, SystemStatus, HealthCheck
+# Add backend/src to Python path
+backend_src = Path(__file__).parent / 'backend' / 'src'
+sys.path.insert(0, str(backend_src))
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Global startup/shutdown events
-@asynccontextmanager
-async def lifespan(main: FastAPI):
-    """Handle application startup and shutdown events."""
-    # Startup
-    logger.info("🚀 Starting Yara - Your Friendly AI Assistant...")
-    logger.info("✨ Yara is ready to help with conversations and insights!")
-    logger.info(
-        f"Configuration: Model size={ModelConfig.MODEL_SIZE}, Database={DatabaseConfig.DB_TYPE or 'None'}"
-    )
+def start_backend():
+    """Start the backend API server."""
+    import uvicorn
+    from config import AppConfig
+    from main import app
     
-    yield
+    print("🚀 Starting Yara Backend API...")
+    print(f"📍 API will be available at http://{AppConfig.HOST}:{AppConfig.PORT}")
+    print(f"📚 API docs: http://{AppConfig.HOST}:{AppConfig.PORT}/docs")
+    print()
     
-    # Shutdown
-    logger.info("🛑 Yara is shutting down... Goodbye for now!")
-    # Clean up resources if needed
-
-# Create FastAPI application
-app = FastAPI(
-    title="Yara - Your Friendly AI Assistant",
-    description="Meet Yara, your intelligent and friendly AI assistant who can help with conversations, answer questions, and provide organization insights through database integration.",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Configure this appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Global exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler for unhandled errors."""
-    logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)}
-    )
-
-# API Routes
-@app.post("/chat", response_model=ChatResponse, tags=["Chat"])
-async def chat(request: ChatRequest):
-    """
-    Chat with Yara, your friendly AI assistant!
-    
-    - **message**: Your message to Yara (required)
-    - **session_id**: Optional session ID for conversation tracking
-    - **context**: Optional context information
-    
-    Yara will respond with helpful, friendly assistance and insights.
-    """
-    return await chat_endpoint_func(request)
-
-@app.get("/status", response_model=SystemStatus, tags=["System"])
-async def get_status():
-    """
-    Get system status and health information.
-    
-    Returns current system status including database connection,
-    model loading status, and uptime information.
-    """
-    return await status_endpoint_func()
-
-@app.get("/health", response_model=HealthCheck, tags=["System"])
-async def health_check():
-    """
-    Health check endpoint for monitoring.
-    
-    Returns basic health status and API version information.
-    """
-    return await health_endpoint_func()
-
-@app.delete("/chat/history", tags=["Chat"])
-async def clear_history(session_id: str = None):
-    """
-    Clear chat history.
-    
-    - **session_id**: Optional session ID to clear specific session history
-    
-    Clears all chat history if no session ID is provided.
-    """
-    return await clear_history_endpoint_func(session_id)
-
-@app.get("/database/info", tags=["Database"])
-async def get_database_info():
-    """
-    Get database connection information and available tables.
-    
-    Returns database connection status, type, and available tables
-    if a database is configured and connected.
-    """
-    return await database_info_endpoint_func()
-
-@app.get("/", tags=["Root"])
-async def root():
-    """
-    Root endpoint with API information.
-    
-    Returns basic information about Yara, your friendly AI assistant.
-    """
-    return {
-        "message": "Hello! I'm Yara, your friendly AI assistant! 🤖✨",
-        "version": "1.0.0",
-        "description": "I'm here to help you with conversations, answer questions, and provide insights from your organization's data. I'm friendly, helpful, and always ready to assist!",
-        "personality": {
-            "name": "Yara",
-            "traits": ["Friendly", "Helpful", "Intelligent", "Patient", "Enthusiastic"],
-            "greeting": "Hi there! I'm Yara, and I'm excited to help you today! 😊"
-        },
-        "endpoints": {
-            "chat": "/chat - Chat with Yara",
-            "status": "/status - System status",
-            "health": "/health - Health check",
-            "database": "/database/info - Database information",
-            "docs": "/docs - API documentation"
-        },
-        "quick_start": "Send a message to /chat to start chatting with me!"
-    }
-
-if __name__ == "__main__":
-    logger.info("🚀 Starting Yara - Your Friendly AI Assistant...")
-    
-    # Run the server
     uvicorn.run(
-        "main:app",
+        app,
         host=AppConfig.HOST,
         port=AppConfig.PORT,
         reload=AppConfig.DEBUG,
         log_level="info"
     )
+
+def start_ui(port=8001):
+    """Start the frontend UI server in a separate process."""
+    frontend_dir = Path(__file__).parent / 'frontend'
+    start_ui_script = frontend_dir / 'start_ui.py'
+    
+    if not start_ui_script.exists():
+        print("⚠️  Frontend UI files not found. Starting backend only.")
+        return None
+    
+    try:
+        print(f"🌐 Starting Frontend UI on port {port}...")
+        ui_process = subprocess.Popen(
+            [sys.executable, str(start_ui_script), str(port)],
+            cwd=str(frontend_dir)
+        )
+        
+        # Wait a moment for UI server to start
+        time.sleep(2)
+        
+        if ui_process.poll() is None:
+            print(f"✅ Frontend UI started at http://localhost:{port}")
+            print()
+            return ui_process
+        else:
+            print("⚠️  Frontend UI failed to start. Continuing with backend only.")
+            return None
+    except Exception as e:
+        print(f"⚠️  Could not start frontend UI: {e}")
+        print("   Continuing with backend only...")
+        return None
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description='Start Yara - Your Friendly AI Assistant',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python main.py              # Start backend API only
+  python main.py --ui         # Start both backend and frontend UI
+  python main.py --ui --port 8002  # Start UI on custom port
+        """
+    )
+    
+    parser.add_argument(
+        '--ui',
+        action='store_true',
+        help='Also start the frontend UI server'
+    )
+    
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8001,
+        help='Port for frontend UI server (default: 8001)'
+    )
+    
+    args = parser.parse_args()
+    
+    if args.ui:
+        print("=" * 60)
+        print("🎯 Starting Yara - Complete System")
+        print("=" * 60)
+        print()
+        
+        # Start UI in background
+        ui_process = start_ui(args.port)
+        
+        if ui_process:
+            print("💡 Both servers are running:")
+            print(f"   • Backend API: http://localhost:8000")
+            print(f"   • Frontend UI: http://localhost:{args.port}")
+            print()
+            print("Press Ctrl+C to stop both servers")
+            print("=" * 60)
+            print()
+        
+        # Start backend (this will block)
+        try:
+            start_backend()
+        except KeyboardInterrupt:
+            print("\n🛑 Shutting down...")
+            if ui_process:
+                ui_process.terminate()
+                print("✅ Frontend UI stopped")
+    else:
+        print("=" * 60)
+        print("🎯 Starting Yara - Backend API Only")
+        print("=" * 60)
+        print()
+        print("💡 To also start the frontend UI, use: python main.py --ui")
+        print()
+        print("=" * 60)
+        print()
+        start_backend()
+
+if __name__ == "__main__":
+    main()
+

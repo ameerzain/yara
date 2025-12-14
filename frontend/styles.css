@@ -295,14 +295,19 @@ body {
 
 .api-status {
     font-weight: 500;
+    transition: opacity 0.2s ease, color 0.3s ease;
+}
+
+.api-status.ready {
+    color: #f59e0b; /* Orange/yellow for connecting/ready */
 }
 
 .api-status.connected {
-    color: #10b981;
+    color: #10b981; /* Green for connected */
 }
 
 .api-status.error {
-    color: #ef4444;
+    color: #ef4444; /* Red for error/disconnected */
 }
 
 /* Modal Styles */

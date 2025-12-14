@@ -10,11 +10,13 @@ class ChatbotApp {
         this.messageHistory = [];
         this.isTyping = false;
         this.apiStatus = 'ready';
+        this.statusCheckInterval = null;
+        this.statusCheckIntervalMs = 3000; // Check every 3 seconds
         
         this.initializeElements();
         this.bindEvents();
         this.initializeUI();
-        this.testApiConnection();
+        this.startStatusMonitoring();
     }
 
     /**
@@ -79,22 +81,92 @@ class ChatbotApp {
     }
 
     /**
-     * Test API connection
+     * Test API connection with retry logic
      */
-    async testApiConnection() {
+    async testApiConnection(retryCount = 0) {
         try {
-            const response = await fetch(this.config.get('apiUrl').replace('/chat', '/health'), {
+            const healthUrl = this.config.get('apiUrl').replace('/chat', '/health');
+            const controller = new AbortController();
+            // Longer timeout for initial checks (backend might be loading models)
+            const timeout = retryCount === 0 ? 5000 : 3000; // 5s for first check, 3s for subsequent
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const response = await fetch(healthUrl, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                cache: 'no-cache' // Prevent caching issues
             });
+            
+            clearTimeout(timeoutId);
             
             if (response.ok) {
                 this.updateApiStatus('connected', 'API: Connected');
+                return true;
             } else {
                 this.updateApiStatus('error', 'API: Error');
+                return false;
             }
         } catch (error) {
-            this.updateApiStatus('error', 'API: Disconnected');
+            if (error.name === 'AbortError') {
+                // On timeout, retry with exponential backoff (max 3 retries)
+                if (retryCount < 3) {
+                    const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // 1s, 2s, 4s, max 5s
+                    setTimeout(() => {
+                        this.testApiConnection(retryCount + 1);
+                    }, delay);
+                    this.updateApiStatus('ready', 'API: Connecting...');
+                    return false;
+                }
+                this.updateApiStatus('error', 'API: Timeout');
+            } else {
+                // Network error - retry if it's the first attempt
+                if (retryCount < 2) {
+                    const delay = 2000 * (retryCount + 1); // 2s, 4s
+                    setTimeout(() => {
+                        this.testApiConnection(retryCount + 1);
+                    }, delay);
+                    this.updateApiStatus('ready', 'API: Connecting...');
+                    return false;
+                }
+                this.updateApiStatus('error', 'API: Disconnected');
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Start continuous status monitoring
+     */
+    startStatusMonitoring() {
+        // Show initial "connecting" state
+        this.updateApiStatus('ready', 'API: Connecting...');
+        
+        // Initial check after a longer delay to allow backend to start
+        // Backend might need time to load models, so wait 2 seconds
+        setTimeout(() => {
+            this.testApiConnection(0); // Start with retry count 0
+        }, 2000);
+        
+        // Get interval from config or use default
+        const interval = this.config.get('statusCheckInterval') || this.statusCheckIntervalMs;
+        
+        // Set up periodic checks (only after initial connection attempt)
+        // Wait a bit longer before starting periodic checks
+        setTimeout(() => {
+            this.statusCheckInterval = setInterval(() => {
+                this.testApiConnection(0); // Regular checks don't need retries
+            }, interval);
+        }, 5000); // Start periodic checks after 5 seconds
+    }
+
+    /**
+     * Stop status monitoring
+     */
+    stopStatusMonitoring() {
+        if (this.statusCheckInterval) {
+            clearInterval(this.statusCheckInterval);
+            this.statusCheckInterval = null;
         }
     }
 
@@ -181,6 +253,14 @@ class ChatbotApp {
             
         } catch (error) {
             this.hideTypingIndicator();
+            
+            // Check if it's a connection error and update status
+            if (error.message.includes('Failed to fetch') || 
+                error.message.includes('NetworkError') || 
+                error.message.includes('timeout')) {
+                this.updateApiStatus('error', 'API: Disconnected');
+            }
+            
             this.addMessage('Sorry, I\'m having trouble connecting right now. Please check your connection and try again.', 'bot');
             this.showErrorToast('Failed to send message: ' + error.message);
         }
@@ -196,17 +276,37 @@ class ChatbotApp {
             session_id: this.sessionId
         };
 
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for chat
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        try {
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody),
+                signal: controller.signal,
+                cache: 'no-cache'
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            // Update status to connected if message was successful
+            if (this.apiStatus !== 'connected') {
+                this.updateApiStatus('connected', 'API: Connected');
+            }
+
+            return await response.json();
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout - the server is taking too long to respond');
+            }
+            throw error;
         }
-
-        return await response.json();
     }
 
     /**
@@ -383,8 +483,9 @@ class ChatbotApp {
             this.sessionId = sessionId;
         }
         
-        // Test new API connection
-        this.testApiConnection();
+        // Restart status monitoring with new API URL
+        this.stopStatusMonitoring();
+        this.startStatusMonitoring();
         
         // Close modal and show confirmation
         this.closeSettings();
@@ -399,20 +500,33 @@ class ChatbotApp {
             this.config.reset();
             this.sessionId = ChatbotConfig.generateSessionId();
             this.loadSettingsIntoModal();
-            this.testApiConnection();
+            this.stopStatusMonitoring();
+            this.startStatusMonitoring();
             this.showErrorToast('Settings reset to defaults', 'success');
         }
     }
 
     /**
-     * Update API status display
+     * Update API status display with smooth transitions
      */
     updateApiStatus(status, text) {
+        // Only update if status actually changed to avoid flickering
+        if (this.apiStatus === status && this.elements.apiStatus.textContent === text) {
+            return;
+        }
+        
         this.apiStatus = status;
         const statusElement = this.elements.apiStatus;
         
-        statusElement.textContent = text;
-        statusElement.className = `api-status ${status}`;
+        // Add smooth transition effect
+        statusElement.style.transition = 'opacity 0.2s ease';
+        statusElement.style.opacity = '0.6';
+        
+        setTimeout(() => {
+            statusElement.textContent = text;
+            statusElement.className = `api-status ${status}`;
+            statusElement.style.opacity = '1';
+        }, 100);
     }
 
     /**

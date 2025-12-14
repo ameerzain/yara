@@ -49,7 +49,7 @@ def start_server(port=8001):
     except OSError as e:
         if e.errno == 48:  # Address already in use
             print(f"=== Port {port} is already in use!")
-            print(f"💡 Try a different port: python start-ui.py {port + 1}")
+            print(f"💡 Try a different port: python start_ui.py {port + 1}")
         else:
             print(f"=== Error starting server: {e}")
         sys.exit(1)
